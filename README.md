@@ -1,2 +1,3 @@
-# swift-danger-plugins
-Swift danger plugins 
+# CoverageHighlighter
+
+A description of this package.

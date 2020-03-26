@@ -12,6 +12,7 @@ protocol NamedCoverable: Coverable {
 }
 
 public struct Filter {
+    // This represent the criteria that a file must meet to be displayed.
     struct FilterFile {
         let nameSuffix: String
         let functionPrefix: String?
@@ -21,123 +22,36 @@ public struct Filter {
 }
 
 extension Filter {
-    var include: [String] { filesToFilter.map { $0.nameSuffix } }
-    var exclude: [String]  { filesToExclude.map { $0.nameSuffix } }
+    var allFileNameSuffixesToInclude: [String] { filesToFilter.map { $0.nameSuffix } }
+    var allFileNameSuffixesToExclude: [String]  { filesToExclude.map { $0.nameSuffix } }
 }
+
 public class CoverageHighlighter {
-
-    class Parser {
-        func parse(_ fileName: String, shouldPrint: Bool = true) -> Coverage? {
-            guard let contents = readFile(fileName) else {
-                print("Could not parse coverage structure from \(fileName)")
-                return nil
-            }
-            let decoder = JSONDecoder()
-
-            do {
-                let coverage = try decoder.decode(Coverage.self, from: contents)
-                if shouldPrint {
-                    printCoverage(coverage)
-                }
-                return coverage
-            } catch {
-                print("Error: \(error)")
-                return nil
-            }
-
-        }
-
-        private func readFile(_ fileName: String) -> Data? {
-            let currentDirectoryURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            guard let fileURL = URL(string: fileName, relativeTo: currentDirectoryURL) else {
-                print("file not found: \(currentDirectoryURL.path)/\(fileName)")
-                return Data()
-            }
-            do {
-                return try String(contentsOf: fileURL).data(using: .utf8)
-            } catch {
-                print("Error: \(error)")
-                return Data()
-            }
-        }
-
-        private func printCoverage(_ coverage: Coverage) {
-
-            let nonTestTargets = coverage.targets.filter { target in
-                return !target.name.contains(".xctest")
-            }
-
-            let nonPodsTargets = nonTestTargets.filter { target in
-                return target.files.filter { file in
-                    return file.path.contains("/Pods/")
-                }.count == 0
-            }
-
-            let maxLength = nonPodsTargets.reduce(0) { max($0, $1.name.count) }
-            let title = "Total coverage"
-
-            print(String(format: "%@: %.3f%%", title.padding(toLength: maxLength, withPad: " ", startingAt: 0), coverage.lineCoverage * 100))
-            nonPodsTargets
-                .sorted { $0.lineCoverage > $1.lineCoverage }
-                .forEach { print(String(format: " %@: %.3f%%", $0.name.padding(toLength: maxLength, withPad: " ", startingAt: 0), $0.lineCoverage * 100)) }
-        }
-    }
-
-    struct Coverage: Coverable {
-        let executableLines: Int
-        let coveredLines: Int
-        let lineCoverage: Double
-
-        let targets: [Target]
-    }
-
-    struct Target: NamedCoverable {
-        let name: String
-        let executableLines: Int
-        let coveredLines: Int
-        let lineCoverage: Double
-
-        let buildProductPath: String
-        let files: [File]
-    }
-
-    struct File: NamedCoverable {
-        let name: String
-        let executableLines: Int
-        let coveredLines: Int
-        let lineCoverage: Double
-
-        let path: String
-        let functions: [Function]
-    }
-
-    struct Function: NamedCoverable {
-        let name: String
-        let executableLines: Int
-        let coveredLines: Int
-        let lineCoverage: Double
-
-        let lineNumber: Int
-        let executionCount: Int
-    }
 
     public static func hightlight(filter: Filter) -> Void {
 
         let danger = Danger()
+
         let filename = "results.json"
+
         let parser = Parser()
 
-        let include = filter.include
-        let exclude = filter.exclude
+        let allFileNameSuffixesToInclude = filter.allFileNameSuffixesToInclude
+        let allFileNameSuffixesToExclude = filter.allFileNameSuffixesToExclude
+
         let result = parser.parse(filename, shouldPrint: false)
 
+        // This give a list of the files from the project filtered with the ones
+        // that we want to include and removing the one we want to exclude.
         let filesToHighlightCoverage = result?.targets.map { $0.files }.flatMap { $0 }.filter { codeFile in
-            include.contains(where: { codeFile.name.contains($0) }) &&
-            !exclude.contains(where: { codeFile.name.contains($0) })
+            allFileNameSuffixesToInclude.contains(where: { codeFile.name.contains($0) }) &&
+                !allFileNameSuffixesToExclude.contains(where: { codeFile.name.contains($0) })
         }.sorted(by: { $0.lineCoverage > $1.lineCoverage }).map { $0 } ?? [File]()
 
+        // All Modified filenames
         let modifiedFilesNames = (danger.git.modifiedFiles + danger.git.createdFiles).compactMap { $0.components(separatedBy: "/").last }
 
+        // This filters from the ones we want to hightlight which onces have been modified.
         let modifiedFilesToHightLight = filesToHighlightCoverage.filter { file in
             modifiedFilesNames.contains(file.path.components(separatedBy: "/").last!)
         }
@@ -146,9 +60,11 @@ public class CoverageHighlighter {
 
             typealias ResultFilter = (functions: [Filter.FilterFile], files: [Filter.FilterFile])
 
-            let result: ResultFilter  = ([],[])
+            var result: ResultFilter  = ([],[])
 
-            let functions: ResultFilter = filter.filesToFilter.reduce(result) { (result, filterFile) -> ResultFilter in
+            // This give as two list one with the files names we want to highlight and another one
+            // with the function names that we want to highlight.
+            result = filter.filesToFilter.reduce(result) { (result, filterFile) -> ResultFilter in
                 var functions = result.functions
                 var files = result.files
                 if filterFile.functionPrefix != nil  && file.name.contains(filterFile.nameSuffix) {
@@ -159,17 +75,20 @@ public class CoverageHighlighter {
                 return (functions, files)
             }
 
-            functions.functions.forEach { function in
-                file.functions.filter { $0.name.contains(function.functionPrefix!) }.forEach {
-                    let finalMessage = String(format: "%@: %.3f%%", $0.name.components(separatedBy: ".").last!.padding(toLength: 50, withPad: " ", startingAt: 0), $0.lineCoverage * 100)
-                    if $0.lineCoverage * 100 < 90 {
-                        warn("Function without test " + finalMessage)
-                    } else {
-                        message("Good test coverage " + finalMessage)
-                    }
+            // This search in the file for the functions that meet the criteria.
+            result.functions.forEach { function in
+                file.functions.filter { $0.name.contains(function.functionPrefix!) }
+                    .forEach {
+                        let finalMessage = String(format: "%@: %.3f%%", $0.name.components(separatedBy: ".").last!.padding(toLength: 50, withPad: " ", startingAt: 0), $0.lineCoverage * 100)
+                        if $0.lineCoverage * 100 < 90 {
+                            warn("Function without test " + finalMessage)
+                        } else {
+                            message("Good test coverage " + finalMessage)
+                        }
                 }
             }
 
+            // This prints the coverage of the filtered file
             let finalMessage = String(format: "%@: %.3f%%", file.path.components(separatedBy: "/").last!.padding(toLength: 50, withPad: " ", startingAt: 0), file.lineCoverage * 100)
             if file.lineCoverage * 100 < 70 {
                 warn("Low test coverage " + finalMessage)

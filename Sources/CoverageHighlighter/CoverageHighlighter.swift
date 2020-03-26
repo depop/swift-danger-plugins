@@ -21,8 +21,8 @@ public struct Filter {
 }
 
 extension Filter {
-    var include: [String] { filter.filesToFilter.map { $0.nameSuffix } }
-    var exclude: [String]  { filter.filesToExclude.map { $0.nameSuffix } }
+    var include: [String] { filesToFilter.map { $0.nameSuffix } }
+    var exclude: [String]  { filesToExclude.map { $0.nameSuffix } }
 }
 public class CoverageHighlighter {
 

@@ -19,6 +19,11 @@ public struct Filter {
     }
     public var filesToFilter: [FilterFile]
     public var filesToExclude: [FilterFile]
+
+    public init(filesToFilter: [FilterFile], filesToExclude: [FilterFile]) {
+        self.filesToFilter = filesToFilter
+        self.filesToExclude = filesToExclude
+    }
 }
 
 extension Filter {

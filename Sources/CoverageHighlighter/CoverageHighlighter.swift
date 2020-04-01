@@ -16,6 +16,10 @@ public struct Filter {
     public struct FilterFile {
         public let nameSuffix: String
         public let functionPrefix: String?
+        public init(nameSuffix: String, functionPrefix: String?) {
+            self.nameSuffix = nameSuffix
+            self.functionPrefix = functionPrefix
+        }
     }
     public var filesToFilter: [FilterFile]
     public var filesToExclude: [FilterFile]

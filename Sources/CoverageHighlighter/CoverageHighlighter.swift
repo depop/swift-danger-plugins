@@ -13,12 +13,12 @@ protocol NamedCoverable: Coverable {
 
 public struct Filter {
     // This represent the criteria that a file must meet to be displayed.
-    struct FilterFile {
-        let nameSuffix: String
-        let functionPrefix: String?
+    public struct FilterFile {
+        public let nameSuffix: String
+        public let functionPrefix: String?
     }
-    var filesToFilter: [FilterFile]
-    var filesToExclude: [FilterFile]
+    public var filesToFilter: [FilterFile]
+    public var filesToExclude: [FilterFile]
 }
 
 extension Filter {

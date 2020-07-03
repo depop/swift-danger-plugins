@@ -10,12 +10,14 @@ let package = Package(
             targets: ["CoverageHighlighter"]),
     ],
     dependencies: [
-      .package(url: "https://github.com/danger/danger-swift.git", from: "3.0.0")
+        .package(
+            url: "https://github.com/danger/danger-swift.git",
+            from: "3.0.0")
     ],
     targets: [
         .target(
             name: "CoverageHighlighter",
-            dependencies: ["Danger"]),
+            dependencies: ["danger-swift"]),
         .testTarget(
             name: "CoverageHighlighterTests",
             dependencies: ["CoverageHighlighter"]),

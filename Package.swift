@@ -11,15 +11,18 @@ let package = Package(
             targets: ["CoverageHighlighter"]),
     ],
     dependencies: [
-        // Dependencies declare other packages that this package depends on.
-      .package(url: "https://github.com/danger/danger-swift.git", from: "3.3.2")
+        .package(name: "danger-swift", url: "https://github.com/danger/danger-swift.git", from: "3.7.2") // dev
     ],
     targets: [
         .target(
             name: "CoverageHighlighter",
-            dependencies: ["danger-swift"]),
+            dependencies: [
+                .product(name: "Danger", package: "danger-swift") // dev
+            ]),
         .testTarget(
             name: "CoverageHighlighterTests",
-            dependencies: ["CoverageHighlighter"]),
+            dependencies: ["CoverageHighlighter",
+                //.product(name: "DangerFixtures", package: "danger-swift") //dev
+            ]),
     ]
 )

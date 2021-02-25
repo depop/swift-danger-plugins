@@ -7,6 +7,16 @@
 
 import Foundation
 
+protocol Coverable: Decodable {
+    var executableLines: Int { get }
+    var coveredLines: Int { get }
+    var lineCoverage: Double { get }
+}
+
+protocol NamedCoverable: Coverable {
+    var name: String { get }
+}
+
 class Parser {
     func parse(_ fileName: String, shouldPrint: Bool = true) -> Coverage? {
         guard let contents = readFile(fileName) else {

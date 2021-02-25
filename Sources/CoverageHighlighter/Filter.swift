@@ -14,14 +14,14 @@ public struct Filter {
     }
 
     public enum FilterType {
-        case exact(String)
+        case equal(String)
         case contains(String)
         case sufix(String)
         case prefix(String)
 
         func compare(with stringToCompare: String) -> Bool {
             switch self {
-            case .exact(let string):
+            case .equal(let string):
                 return stringToCompare == string
             case .contains(let string):
                 return stringToCompare.contains(string)
@@ -34,18 +34,36 @@ public struct Filter {
     }
 
     public struct File {
-        let nameFilter: FilterType
-        let functionsFilters: [FilterType]?
+        let name: FilterType
+        let functions: [FilterType]?
 
-        public init(nameFilter: FilterType, functionsFilters: [FilterType]? = nil) {
-            self.nameFilter = nameFilter
-            self.functionsFilters = functionsFilters
+        public init(name nameFilter: FilterType, functions functionsFilters: [FilterType]? = nil) {
+            self.name = nameFilter
+            self.functions = functionsFilters
         }
     }
 
-    let inclusionType: InclusionType
+    private let included: [File]
+    private let excluded: [File]
 
-    public init(inclusionType: InclusionType) {
-        self.inclusionType = inclusionType
+    public init(included: [File] = [], excluded: [File] = []) {
+        self.included = included
+        self.excluded = excluded
+    }
+
+    func isIncluded(fileName: String) -> Bool {
+        return included.contains(where: { $0.name.compare(with: fileName) }) && !isExcluded(fileName: fileName)
+    }
+
+    func isExcluded(fileName: String) -> Bool {
+        return excluded.contains(where: { $0.name.compare(with: fileName) })
+    }
+
+    func isIncluded(functionName: String, in fileName: String) -> Bool {
+        let includedFileFilter = included.first(where: {$0.name.compare(with: fileName)})
+        let excludedFileFilter = excluded.first(where: {$0.name.compare(with: fileName)})
+
+        return includedFileFilter?.functions?.contains(where: {$0.compare(with: functionName)}) ?? false &&
+            !(excludedFileFilter?.functions?.contains(where: {$0.compare(with: functionName)}) ?? false)
     }
 }

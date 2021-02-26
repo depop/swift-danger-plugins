@@ -18,11 +18,11 @@ extension CoverageHighlighterError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .noCoverageAvailable:
-            return "noCoverageAvailable"
+            return "Couldn't get the coverage from the desired file"
         case .noGitChanges:
-            return "noGitChanges"
+            return "No git changes"
         case .noFilesToShowCoverage:
-            return "noFilesToShowCoverage"
+            return "There aren't modified/created files with coverage"
         case .unknown:
             return "unknown"
         }

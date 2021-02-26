@@ -17,12 +17,12 @@ let package = Package(
         .target(
             name: "CoverageHighlighter",
             dependencies: [
-                .product(name: "Danger", package: "danger-swift") // Needs to be commented to run the tests
+                .product(name: "Danger", package: "danger-swift") // Needs to be commented for dev + tests
             ]),
         .testTarget(
             name: "CoverageHighlighterTests",
             dependencies: ["CoverageHighlighter",
-               // .product(name: "DangerFixtures", package: "danger-swift") // Needs to be uncommented to run the tests
+               // .product(name: "DangerFixtures", package: "danger-swift") // Needs to be uncommented for dev + tests
             ],
             resources: [
                 .process("Results")

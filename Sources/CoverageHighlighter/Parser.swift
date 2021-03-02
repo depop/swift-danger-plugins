@@ -7,10 +7,20 @@
 
 import Foundation
 
+protocol Coverable: Decodable {
+    var executableLines: Int { get }
+    var coveredLines: Int { get }
+    var lineCoverage: Double { get }
+}
+
+protocol NamedCoverable: Coverable {
+    var name: String { get }
+}
+
 class Parser {
-    func parse(_ fileName: String, shouldPrint: Bool = true) -> Coverage? {
-        guard let contents = readFile(fileName) else {
-            print("Could not parse coverage structure from \(fileName)")
+    static func parse(reader: Reader, shouldPrint: Bool = true) -> Coverage? {
+        guard let contents = reader.readFile() else {
+            print("Could not parse coverage structure from \(reader.fileName)")
             return nil
         }
         let decoder = JSONDecoder()
@@ -22,28 +32,12 @@ class Parser {
             }
             return coverage
         } catch {
-            print("Error: \(error)")
+            print("Parser - Error: \(error)")
             return nil
         }
-
     }
 
-    private func readFile(_ fileName: String) -> Data? {
-        let currentDirectoryURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        guard let fileURL = URL(string: fileName, relativeTo: currentDirectoryURL) else {
-            print("file not found: \(currentDirectoryURL.path)/\(fileName)")
-            return Data()
-        }
-        do {
-            return try String(contentsOf: fileURL).data(using: .utf8)
-        } catch {
-            print("Error: \(error)")
-            return Data()
-        }
-    }
-
-    private func printCoverage(_ coverage: Coverage) {
-
+   static private func printCoverage(_ coverage: Coverage) {
         let nonTestTargets = coverage.targets.filter { target in
             return !target.name.contains(".xctest")
         }

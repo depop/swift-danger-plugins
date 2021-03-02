@@ -1,111 +1,88 @@
 import Danger
 import Foundation
-
-protocol Coverable: Decodable {
-    var executableLines: Int { get }
-    var coveredLines: Int { get }
-    var lineCoverage: Double { get }
-}
-
-protocol NamedCoverable: Coverable {
-    var name: String { get }
-}
-
-public struct Filter {
-    // This represent the criteria that a file must meet to be displayed.
-    public struct FilterFile {
-        public let nameSuffix: String
-        public let functionPrefix: String?
-        public init(nameSuffix: String, functionPrefix: String?) {
-            self.nameSuffix = nameSuffix
-            self.functionPrefix = functionPrefix
-        }
-    }
-    public var filesToFilter: [FilterFile]
-    public var filesToExclude: [FilterFile]
-
-    public init(filesToFilter: [FilterFile], filesToExclude: [FilterFile]) {
-        self.filesToFilter = filesToFilter
-        self.filesToExclude = filesToExclude
-    }
-}
-
-extension Filter {
-    var allFileNameSuffixesToInclude: [String] { filesToFilter.map { $0.nameSuffix } }
-    var allFileNameSuffixesToExclude: [String]  { filesToExclude.map { $0.nameSuffix } }
-}
+import DangerShellExecutor
 
 public class CoverageHighlighter {
 
-    public static func hightlight(filter: Filter) -> Void {
+    private let danger: DangerDSL
+    private let reader: Reader
+    private let filter: Filter
 
-        let danger = Danger()
+    lazy var modifiedFilesNames = {
+        (danger.git.modifiedFiles + danger.git.createdFiles).compactMap { $0.components(separatedBy: "/").last }
+    }()
 
-        let filename = "results.json"
+    public init(reader: Reader = DefaultReader(fileName: "results.json"), filter: Filter, danger: DangerDSL = Danger()) {
+        self.reader = reader
+        self.filter = filter
+        self.danger = danger
+    }
 
-        let parser = Parser()
+    public func highlight() -> Void {
+        do {
+            let filesToHighlightCoverage = try filesToHighlight()
 
-        let allFileNameSuffixesToInclude = filter.allFileNameSuffixesToInclude
-        let allFileNameSuffixesToExclude = filter.allFileNameSuffixesToExclude
+            filesToHighlightCoverage.forEach { file in
+                let functionsToHighlight = file.functions.filter({ filter.isIncluded(functionName: $0.name, in: file.name)})
+                functionsToHighlight.forEach({
+                    let finalMessage = String(format: "%@: %.3f%%", $0.name.components(separatedBy: ".").last!.padding(toLength: 50, withPad: " ", startingAt: 0), $0.lineCoverage * 100)
+                    if $0.lineCoverage * 100 < 90 {
+                        danger.warn("Function without test " + finalMessage)
+                    } else {
+                        danger.message("Good test coverage " + finalMessage)
+                    }
+                })
 
-        let result = parser.parse(filename, shouldPrint: false)
-
-        // This give a list of the files from the project filtered with the ones
-        // that we want to include and removing the one we want to exclude.
-        let filesToHighlightCoverage = result?.targets.map { $0.files }.flatMap { $0 }.filter { codeFile in
-            allFileNameSuffixesToInclude.contains(where: { codeFile.name.contains($0) }) &&
-                !allFileNameSuffixesToExclude.contains(where: { codeFile.name.contains($0) })
-        }.sorted(by: { $0.lineCoverage > $1.lineCoverage }).map { $0 } ?? [File]()
-
-        // All Modified filenames
-        let modifiedFilesNames = (danger.git.modifiedFiles + danger.git.createdFiles).compactMap { $0.components(separatedBy: "/").last }
-
-        // This filters from the ones we want to hightlight which onces have been modified.
-        let modifiedFilesToHightLight = filesToHighlightCoverage.filter { file in
-            modifiedFilesNames.contains(file.path.components(separatedBy: "/").last!)
-        }
-
-        modifiedFilesToHightLight.forEach { file in
-
-            typealias ResultFilter = (functions: [Filter.FilterFile], files: [Filter.FilterFile])
-
-            var result: ResultFilter  = ([],[])
-
-            // This give as two list one with the files names we want to highlight and another one
-            // with the function names that we want to highlight.
-            result = filter.filesToFilter.reduce(result) { (result, filterFile) -> ResultFilter in
-                var functions = result.functions
-                var files = result.files
-                if filterFile.functionPrefix != nil  && file.name.contains(filterFile.nameSuffix) {
-                    functions.append(filterFile)
+                // This prints the coverage of the filtered file
+                let finalMessage = String(format: "%@: %.3f%%", file.path.components(separatedBy: "/").last!.padding(toLength: 50, withPad: " ", startingAt: 0), file.lineCoverage * 100)
+                if file.lineCoverage * 100 < 70 {
+                    danger.warn("Low test coverage " + finalMessage)
                 } else {
-                    files.append(filterFile)
-                }
-                return (functions, files)
-            }
-
-            // This search in the file for the functions that meet the criteria.
-            result.functions.forEach { function in
-                file.functions.filter { $0.name.contains(function.functionPrefix!) }
-                    .forEach {
-                        let finalMessage = String(format: "%@: %.3f%%", $0.name.components(separatedBy: ".").last!.padding(toLength: 50, withPad: " ", startingAt: 0), $0.lineCoverage * 100)
-                        if $0.lineCoverage * 100 < 90 {
-                            warn("Function without test " + finalMessage)
-                        } else {
-                            message("Good test coverage " + finalMessage)
-                        }
+                    danger.message("Good test coverage " + finalMessage)
                 }
             }
 
-            // This prints the coverage of the filtered file
-            let finalMessage = String(format: "%@: %.3f%%", file.path.components(separatedBy: "/").last!.padding(toLength: 50, withPad: " ", startingAt: 0), file.lineCoverage * 100)
-            if file.lineCoverage * 100 < 70 {
-                warn("Low test coverage " + finalMessage)
-            } else {
-                message("Good test coverage " + finalMessage)
-            }
-
+        } catch let error as CoverageHighlighterError {
+            print(error.errorDescription ?? "Unknown")
+        } catch {
+            print("Unknown")
         }
     }
 
+    func filesToHighlight() throws -> [File] {
+        guard let coverage = Parser.parse(reader: reader, shouldPrint: true) else {
+            throw CoverageHighlighterError.noCoverageAvailable
+        }
+
+        let modifiedFilesNames = (danger.git.modifiedFiles + danger.git.createdFiles).compactMap { $0.components(separatedBy: "/").last }
+
+        guard !modifiedFilesNames.isEmpty else {
+            throw CoverageHighlighterError.noGitChanges
+        }
+
+        let filesToHighlightCoverage = coverage.targets
+            .map { $0.files }
+            .flatMap { $0 }
+            .filter({ shouldHighlightFile(filename: $0.name) })
+            .sorted(by: { $0.lineCoverage > $1.lineCoverage })
+
+        guard !filesToHighlightCoverage.isEmpty else {
+            throw CoverageHighlighterError.noFilesToShowCoverage
+        }
+
+        return filesToHighlightCoverage
+    }
+
+    // MARK: - File Filtering
+    func shouldHighlightFile(filename: String) -> Bool {
+        return isCreatedOrModified(filename: filename) && filter.isIncluded(fileName: filename)
+    }
+
+    func isCreatedOrModified(filename: String) -> Bool {
+        guard modifiedFilesNames.contains(filename) else {
+            return false
+        }
+
+        return true
+    }
 }

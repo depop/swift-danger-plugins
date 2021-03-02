@@ -1,4 +1,4 @@
-// swift-tools-version:5.2
+// swift-tools-version:5.3
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -11,15 +11,22 @@ let package = Package(
             targets: ["CoverageHighlighter"]),
     ],
     dependencies: [
-        // Dependencies declare other packages that this package depends on.
-      .package(url: "https://github.com/danger/danger-swift.git", from: "3.3.2")
+        .package(name: "danger-swift", url: "https://github.com/danger/danger-swift.git", from: "3.7.2")
     ],
     targets: [
         .target(
             name: "CoverageHighlighter",
-            dependencies: ["danger-swift"]),
+            dependencies: [
+                .product(name: "Danger", package: "danger-swift") // Needs to be commented for dev + tests
+            ]),
         .testTarget(
             name: "CoverageHighlighterTests",
-            dependencies: ["CoverageHighlighter"]),
+            dependencies: ["CoverageHighlighter",
+               // .product(name: "DangerFixtures", package: "danger-swift") // Needs to be uncommented for dev + tests
+            ],
+            resources: [
+                .process("Results")
+            ]
+        ),
     ]
 )

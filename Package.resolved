@@ -6,8 +6,8 @@
         "repositoryURL": "https://github.com/danger/danger-swift.git",
         "state": {
           "branch": null,
-          "revision": "e8041fec249e57fa33c0f2f5ff8e3ca7162bcdff",
-          "version": "3.3.2"
+          "revision": "6a62b575fe550d0b4ae189740b6712f3b1c662cc",
+          "version": "3.7.2"
         }
       },
       {
@@ -24,8 +24,8 @@
         "repositoryURL": "https://github.com/nerdishbynature/octokit.swift",
         "state": {
           "branch": null,
-          "revision": "c391cfba4d33f3f4c7d7d8fa6708970f7d30af82",
-          "version": "0.10.1"
+          "revision": "9521cdff919053868ab13cd08a228f7bc1bde2a9",
+          "version": "0.11.0"
         }
       },
       {
